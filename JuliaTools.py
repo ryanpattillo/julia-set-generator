@@ -5,7 +5,6 @@ import os
 import numpy as np
 import numexpr as ne
 from PIL import Image
-import imageio
 
 
 def f(arr, c):
@@ -112,30 +111,6 @@ def makeFrame(num, n, split, coordList):
         except IOError:
             pass
     frame.save("images/frame" + str(num) + ".png")
-
-
-def makeGif(frameCount, reverse=False, loop=False, 
-            blackFrames=False, duration=0.075):
-    """.
-
-    """
-    with imageio.get_writer("JuliaGif.gif", mode="I", duration=duration) as gif:
-        if loop or not reverse:
-            for frame in range(frameCount):
-                framestr = "images/frame" + str(frame) + ".png"
-                try:
-                    img = imageio.imread(framestr)
-                    gif.append_data(img)
-                except IOError:
-                    pass
-        if loop or reverse:
-            for frame in reversed(range(frameCount)):
-                framestr = "images/frame" + str(frame) + ".png"
-                try:
-                    img = imageio.imread(framestr)
-                    gif.append_data(img)
-                except IOError:
-                    pass
 
 
 def prepareForFFmpeg(frameCount, reverse=False, loop=False):
