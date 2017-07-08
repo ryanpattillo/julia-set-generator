@@ -1,9 +1,25 @@
-"""
-Constants:
-    n -- n*n pixels in each subimage
-    split -- split*split subimages in each frame
-    frameCount -- number of frames in final gif
-    iters -- number of time function is iterated
+"""Create sequence of images based on inputs from 'input.julia'.
+
+For descriptions of constants & inputs, see JuliaInputs.py.
+
+Sequence types:
+  Linear -- Every frame shows a fixed region of the complex plane
+             centered at the origin. Each successive frame is made by moving
+             c along a straight line in the complex plane.
+  Radial -- Every frame shows a fixed region of the complex plane
+             centered at the origin. Each successive frame is made by moving
+             c along a circular arc centered at the origin.
+  Zoom -- Every frame shows the same Julia fractal, i.e. `c` is not changed.
+           The center of each image is also constant, but it may be centered 
+           anywhere in the plane. Each successive frame shows a slightly 
+           smaller or larger region of the complex plane to give 
+           a zooming effect.
+
+Each sequence type adjusts its starting and/or ending c values so
+ that they are 'interesting' -  this means that the fractal created 
+ by c is not an entirely black image.
+
+String to be tweeted is written to 'output.julia'.
 """
 
 import timeit
@@ -23,19 +39,20 @@ with open('input.julia','r') as inFile:
 line = inputs[0].split()
 n, split, iters, frameCount = map(int, line[0:4])
 r, c = float(line[4]), complex(float(line[5]), float(line[6]))
-gifType = inputs[4]
+seqType = inputs[4]
 
+# List of coordinates of subimages inside the full image
 coords = list(itertools.product(range(split), range(split)))
 
 
-def makeLinearGif():
+def makeLinear():
     global c
     line = inputs[1].split()
     cEnd = complex(float(line[0]), float(line[1]))
 
     pool = Pool(4)
 
-    # Get suitable starting c
+    # Get interesting starting c
     while True:
         subIm = JuliaTools.subImage(c=c,
                                     r=r,
@@ -49,6 +66,21 @@ def makeLinearGif():
         else:
             c *= 0.975
 
+    # Get interesting cEnd
+    while True:
+        subIm = JuliaTools.subImage(c=cEnd,
+                                    r=r,
+                                    n=10,
+                                    iters=iters,
+                                    split=split,
+                                    save=False)
+        isBlackList = pool.map(subIm, coords)
+        if not all(isBlackList):
+            break
+        else:
+            cEnd *= 0.975
+
+    # Straight line c follows in complex plane
     cPath = np.linspace(c, cEnd, frameCount)
 
     for frame in range(frameCount):    
@@ -67,27 +99,28 @@ def makeLinearGif():
  
     JuliaTools.prepareForFFmpeg(frameCount=frameCount, loop=True)       
 
+    # Write tweet string
     s1 = '+' if c.imag >= 0 else '-'
     s2 = '+' if cEnd.imag >= 0 else '-'
     with open("output.julia","w") as out:
-        out.write("""Images generated using constants on a straight path from {:03.2f} {} {:03.2f}i to {:03.2f} {} {:03.2f}i.""".format(c.real, s1, abs(c.imag), cEnd.real, s2, abs(cEnd.imag)))
-#        out.write(' '.join(map(repr, [n*split, iters, frameCount, r])) + '\n')
-#        out.write('linear\n')
-#        out.write(' '.join(map(repr, [c.real, c.imag, cEnd.real, cEnd.imag])))
+        out.write("Images generated using constants"
+                  " on a straight path from {:03.2f} {} {:03.2f}i"
+                  " to {:03.2f} {} {:03.2f}i."
+                  .format(c.real, s1, abs(c.imag), 
+                          cEnd.real, s2, abs(cEnd.imag)))
 
     stop = timeit.default_timer()
     
     print stop - start
 
 
-def makeRadialGif():
+def makeRadial():
     line = inputs[2].split()
     rad, angle = float(line[0]), float(line[1])
     args = np.linspace(angle, angle + np.pi, frameCount)
 
     pool = Pool(4)
 
-    # Get suitable radius
     while True:
         subIm = JuliaTools.subImage(c=rad*np.exp(1j*angle),
                                     r=r,
@@ -101,6 +134,7 @@ def makeRadialGif():
         else:
             rad *= 0.975
 
+    # Circular arc c follows in complex plane
     cPath = rad*np.exp(1j*args)
 
     for frame in range(frameCount):
@@ -118,20 +152,18 @@ def makeRadialGif():
     pool.close()
         
     JuliaTools.prepareForFFmpeg(frameCount=frameCount, loop=True)
-#    JuliaTools.makeGif(frameCount=frameCount)
 
     with open("output.julia","w") as out:
-        out.write("""Images generated using constants on a circular arc of radius {:03.2f}.""".format(rad))
-#        out.write(' '.join(map(repr, [n*split, iters, frameCount, r])) + '\n')
-#        out.write('radial\n')
-#        out.write(repr(rad))
+        out.write("Images generated using constants"
+                  " on a circular arc of radius {:03.2f}."
+                  .format(rad))
 
     stop = timeit.default_timer()
     
     print stop - start
 
 
-def makeZoomGif():
+def makeZoom():
     global c
     line = inputs[3].split()
     center = complex(float(line[0]), float(line[1]))
@@ -140,30 +172,27 @@ def makeZoomGif():
 
     pool = Pool(4)
     
-    counter = 0
+    # Get interesting c
     while True:
         subIm = JuliaTools.subImage(c=c,
                                     r=rStart,
                                     n=10,
-                                    iters=50,
+                                    iters=iters,
                                     split=split,
                                     save=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
         else:
-            counter += 1
             c *= 0.975
-
-    print 'appropriate c found after', counter, 'attempts'
     
-    counter = 0
+    # Get interesting center (not entirely black or color)
     decreased, increased = False, False
     while True:
         subIm = JuliaTools.subImage(c=c,
                                     r=0.25*rStart,
                                     n=10,
-                                    iters=50,
+                                    iters=iters,
                                     split=split,
                                     center=center,
                                     save=False)
@@ -179,12 +208,10 @@ def makeZoomGif():
             center *= 1 + h
             increased = True
         if increased and decreased:
-            h /= 2.0
+            h *= 0.5
             increased, decreased = False, False
-        counter += 1
 
-    print 'Center point found after', counter, 'attempts'
-    
+    # Ensures frame size is changed at consant proportion
     factor = (rEnd/rStart)**(1.0/float(frameCount))
     for frame in range(frameCount):
         subIm = JuliaTools.subImage(c=c,
@@ -200,16 +227,14 @@ def makeZoomGif():
     pool.close()
 
     JuliaTools.prepareForFFmpeg(frameCount=frameCount, loop=True)
-#    JuliaTools.makeGif(frameCount=frameCount, reverse=True)
 
     s1 = '+' if c.imag >= 0 else '-'
     s2 = '+' if center.imag >= 0 else '-'
     with open("output.julia","w") as out:
-        out.write("""Image generated using c = {:03.2f} {} {:03.2f}i centered at the point {:03.2f} {} {:03.2f}i.""".format(c.real, s1, abs(c.imag), center.real, s2, abs(center.imag)))
-#        out.write(' '.join(map(repr, [n*split, iters, frameCount, r])) + '\n')
-#        out.write('zoom\n')
-#        out.write(' '.join(map(repr, 
-#                               [c.real, c.imag, center.real, center.imag])))
+        out.write("Image generated using c = {:03.2f} {} {:03.2f}i"
+                  " centered at the point {:03.2f} {} {:03.2f}i."
+                  .format(c.real, s1, abs(c.imag), 
+                          center.real, s2, abs(center.imag)))
     
     stop = timeit.default_timer()
     
@@ -217,9 +242,9 @@ def makeZoomGif():
 
 
 if __name__ == "__main__":
-    if gifType == 'linear':
-        makeLinearGif()
-    elif gifType == 'radial':
-        makeRadialGif()
-    elif gifType == 'zoom':
-        makeZoomGif()
+    if seqType == 'linear':
+        makeLinear()
+    elif seqType == 'radial':
+        makeRadial()
+    elif seqType == 'zoom':
+        makeZoom()

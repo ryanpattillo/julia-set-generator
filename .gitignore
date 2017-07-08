@@ -3,6 +3,7 @@
 *.log
 async-upload.py
 images/
+output.julia
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
