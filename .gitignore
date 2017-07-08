@@ -1,6 +1,7 @@
 # Custom ignores
 *.sh
 *.log
+*.txt
 async-upload.py
 images/
 output.julia
