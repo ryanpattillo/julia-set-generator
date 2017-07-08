@@ -3,16 +3,17 @@
 This code creates sequences of images of 
 [Julia sets](http://www.karlsims.com/julia.html) by iterating complex 
 numbers through the function *f(z) = z^2 + c* for complex constants *c*.
+Images are RGB `.png` files and can be combined to form animations.
 
 ## Requirements
 
 The following third-party Python packages are used:
 
 * `numpy` - efficient array operations with complex numbers
-* `[numexpr](https://github.com/pydata/numexpr)` - optimizes `numpy` array 
+* [`numexpr`](https://github.com/pydata/numexpr) - optimizes `numpy` array 
 operations
 * `PIL.Image` - creates images from `numpy` arrays and saves them to disk
-* `[pathos](https://github.com/uqfoundation/pathos)` - allows for 
+* [`pathos`](https://github.com/uqfoundation/pathos) - allows for 
 multiprocessing to be used in `Julia.py` with `JuliaTools.py` 
 imported as a module
 
@@ -45,7 +46,7 @@ This code is being used by the twitter bot
 [@JuliaFractalBot](https://twitter.com/JuliaFractalBot) to generate and
 tweet videos of Julia fractals. A sequence of images produced by `Julia.py`
 is converted to a `.mp4` video compatible with Twitter using `ffmpeg`:
-```Shell
+```bash
 ffmpeg -r 30 -f concat -i framelist.txt -vcodec libx264 -crf 12 -pix_fmt yuv420p -s 1024:1024 -aspect 1:1 JuliaVid.mp4
 ```
 The video file is then asynchronously uploaded to Twitter using
