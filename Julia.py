@@ -1,4 +1,4 @@
-"""Create sequence of images based on inputs from 'input.julia'.
+"""Create sequence of images based on inputs from 'input.json'.
 
 For descriptions of constants & inputs, see JuliaInputs.py.
 
@@ -19,11 +19,12 @@ Each sequence type adjusts its starting and/or ending c values so
  that they are 'interesting' -  this means that the fractal created 
  by c is not an entirely black image.
 
-String to be tweeted is written to 'output.julia'.
+String to be tweeted is written to 'tweet.txt'.
 """
 
 import timeit
 import itertools
+import json
 
 import numpy as np
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -32,14 +33,14 @@ import JuliaTools
 
 start = timeit.default_timer()
 
-# Read constants from input.julia
-with open('input.julia','r') as inFile:
-    inputs = inFile.readlines()
+# Read inputs from input.json
+with open("input.json", "r") as infile:
+    d = json.load(infile)
 
-line = inputs[0].split()
-n, split, iters, frameCount = map(int, line[0:4])
-r, c = float(line[4]), complex(float(line[5]), float(line[6]))
-seqType = inputs[4]
+seqType = str(d["seqType"])
+n, r, p = d["n"], d["r"], d["p"]
+split, iters, frameCount = d["split"], d["iters"], d["frameCount"]
+c = complex(d["c"][0], d["c"][1])
 
 # List of coordinates of subimages inside the full image
 coords = list(itertools.product(range(split), range(split)))
@@ -47,19 +48,14 @@ coords = list(itertools.product(range(split), range(split)))
 
 def makeLinear():
     global c
-    line = inputs[1].split()
-    cEnd = complex(float(line[0]), float(line[1]))
+    cEnd = complex(d["linear"]["cEnd"][0], d["linear"]["cEnd"][1])
 
     pool = Pool(4)
 
     # Get interesting starting c
     while True:
-        subIm = JuliaTools.subImage(c=c,
-                                    r=r,
-                                    n=10,
-                                    iters=iters,
-                                    split=split,
-                                    save=False)
+        subIm = JuliaTools.subImage(c=c, r=r, p=p, n=10, iters=iters,
+                                    split=split, save=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -68,12 +64,8 @@ def makeLinear():
 
     # Get interesting cEnd
     while True:
-        subIm = JuliaTools.subImage(c=cEnd,
-                                    r=r,
-                                    n=10,
-                                    iters=iters,
-                                    split=split,
-                                    save=False)
+        subIm = JuliaTools.subImage(c=cEnd, r=r, p=p, n=10, iters=iters, 
+                                    split=split, save=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -84,11 +76,8 @@ def makeLinear():
     cPath = np.linspace(c, cEnd, frameCount)
 
     for frame in range(frameCount):    
-        subIm = JuliaTools.subImage(c=cPath[frame],
-                                    r=r,
-                                    n=n,
-                                    iters=iters,
-                                    split=split)
+        subIm = JuliaTools.subImage(c=cPath[frame], r=r, n=n, p=p,
+                                    iters=iters, split=split)
         isBlackList = pool.map(subIm, coords)
         allBlack = all(isBlackList)
         
@@ -102,7 +91,7 @@ def makeLinear():
     # Write tweet string
     s1 = '+' if c.imag >= 0 else '-'
     s2 = '+' if cEnd.imag >= 0 else '-'
-    with open("output.julia","w") as out:
+    with open("tweet.txt","w") as out:
         out.write("Images generated using constants"
                   " on a straight path from {:03.2f} {} {:03.2f}i"
                   " to {:03.2f} {} {:03.2f}i."
@@ -115,19 +104,14 @@ def makeLinear():
 
 
 def makeRadial():
-    line = inputs[2].split()
-    rad, angle = float(line[0]), float(line[1])
+    rad, angle = d["radial"]["rad"], d["radial"]["angle"]
     args = np.linspace(angle, angle + np.pi, frameCount)
 
     pool = Pool(4)
 
     while True:
-        subIm = JuliaTools.subImage(c=rad*np.exp(1j*angle),
-                                    r=r,
-                                    n=10,
-                                    iters=iters,
-                                    split=split,
-                                    save=False)
+        subIm = JuliaTools.subImage(c=rad*np.exp(1j*angle), r=r, n=10, p=p,
+                                    iters=iters, split=split, save=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -138,11 +122,8 @@ def makeRadial():
     cPath = rad*np.exp(1j*args)
 
     for frame in range(frameCount):
-        subIm = JuliaTools.subImage(c=cPath[frame],
-                                    r=r,
-                                    n=n,
-                                    iters=iters,
-                                    split=split)
+        subIm = JuliaTools.subImage(c=cPath[frame], r=r, n=n, p=p,
+                                    iters=iters, split=split)
         isBlackList = pool.map(subIm, coords)
         allBlack = all(isBlackList)
         
@@ -153,7 +134,7 @@ def makeRadial():
         
     JuliaTools.prepareForFFmpeg(frameCount=frameCount, loop=True)
 
-    with open("output.julia","w") as out:
+    with open("tweet.txt","w") as out:
         out.write("Images generated using constants"
                   " on a circular arc of radius {:03.2f}."
                   .format(rad))
@@ -165,21 +146,16 @@ def makeRadial():
 
 def makeZoom():
     global c
-    line = inputs[3].split()
-    center = complex(float(line[0]), float(line[1]))
-    rStart, rEnd = float(line[2]), float(line[3])
+    center = complex(d["zoom"]["center"][0], d["zoom"]["center"][1])
+    rStart, rEnd = d["zoom"]["rStart"], d["zoom"]["rEnd"]
     h = 0.25
 
     pool = Pool(4)
     
     # Get interesting c
     while True:
-        subIm = JuliaTools.subImage(c=c,
-                                    r=rStart,
-                                    n=10,
-                                    iters=iters,
-                                    split=split,
-                                    save=False)
+        subIm = JuliaTools.subImage(c=c, r=rStart, n=10, p=p, iters=iters,
+                                    split=split, save=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -189,13 +165,8 @@ def makeZoom():
     # Get interesting center (not entirely black or color)
     decreased, increased = False, False
     while True:
-        subIm = JuliaTools.subImage(c=c,
-                                    r=0.25*rStart,
-                                    n=10,
-                                    iters=iters,
-                                    split=split,
-                                    center=center,
-                                    save=False)
+        subIm = JuliaTools.subImage(c=c, r=0.25*rStart, n=10, p=p, iters=iters,
+                                    split=split, center=center, save=False)
         isBlackList = pool.map(subIm, coords)
         someBlack = any(isBlackList)
         someColor = not all(isBlackList)
@@ -214,12 +185,8 @@ def makeZoom():
     # Ensures frame size is changed at consant proportion
     factor = (rEnd/rStart)**(1.0/float(frameCount))
     for frame in range(frameCount):
-        subIm = JuliaTools.subImage(c=c,
-                                    r=rStart,
-                                    n=n,
-                                    iters=iters,
-                                    split=split,
-                                    center=center)
+        subIm = JuliaTools.subImage(c=c, r=rStart, n=n, p=p,
+                                    iters=iters, split=split, center=center)
         pool.map(subIm, coords)
         JuliaTools.makeFrame(frame, n, split, coords)
         rStart *= factor
@@ -230,12 +197,51 @@ def makeZoom():
 
     s1 = '+' if c.imag >= 0 else '-'
     s2 = '+' if center.imag >= 0 else '-'
-    with open("output.julia","w") as out:
+    with open("tweet.txt","w") as out:
         out.write("Image generated using c = {:03.2f} {} {:03.2f}i"
                   " centered at the point {:03.2f} {} {:03.2f}i."
                   .format(c.real, s1, abs(c.imag), 
                           center.real, s2, abs(center.imag)))
     
+    stop = timeit.default_timer()
+    
+    print stop - start
+
+
+def makePower():
+    global c
+    pMin, pMax = d["power"]["pMin"], d["power"]["pMax"]
+
+    pPath = np.linspace(pMin, pMax, frameCount)
+
+    pool = Pool(4)
+
+    # Get interesting c
+    while True:
+        subIm = JuliaTools.subImage(c=c, n=10, iters=iters, r=r,
+                                    p=pMin, split=split, save=False)
+        isBlackList = pool.map(subIm, coords)
+        if not all(isBlackList):
+            break
+        else:
+            c *= 0.975
+
+    for frame in range(frameCount):
+        subIm = JuliaTools.subImage(c=c, r=r, n=n, p=pPath[frame],
+                                    iters=iters, split=split)
+        isBlackList = pool.map(subIm, coords)
+        allBlack = all(isBlackList)
+        
+        if not allBlack:
+            JuliaTools.makeFrame(frame, n, split, coords)
+    
+    pool.close()
+        
+    JuliaTools.prepareForFFmpeg(frameCount=frameCount, loop=True)
+
+    with open("tweet.txt", "w") as out:
+        out.write("Fractional powers ranging from 2 to 3.")
+
     stop = timeit.default_timer()
     
     print stop - start
@@ -248,3 +254,5 @@ if __name__ == "__main__":
         makeRadial()
     elif seqType == 'zoom':
         makeZoom()
+    elif seqType == 'power':
+        makePower()

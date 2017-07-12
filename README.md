@@ -2,7 +2,8 @@
 
 This code creates sequences of images of 
 [Julia sets](http://www.karlsims.com/julia.html) by iterating complex 
-numbers through the function *f(z) = z^2 + c* for complex constants *c*.
+numbers through the function *f(z) = z^p + c* for complex constants *c*
+and (usually) integer exponents *p*.
 Images are RGB `.png` files and can be combined to form animations.
 
 ## Requirements
@@ -21,10 +22,10 @@ imported as a module
 ## Running the scripts
 
 First, run `JuliaInputs.py`. This creates the file
-`input.julia` which contains all of the constants that are read into
+`input.json` which contains all of the constants that are read into
 `Julia.py`. You can now run `Julia.py`, which imports
 `JuliaTools.py` as a module. The sequence of Julia 
-fractals will be written to `/images`.
+fractals will be written to `images/`.
 
 ## Output
 
@@ -43,6 +44,9 @@ The center of each image is also constant, but it may be centered anywhere
 in the plane. Each successive frame shows a slightly smaller or larger 
 region of the complex plane to give a zooming effect. 
 ([Example](https://twitter.com/JuliaFractalBot/status/883642095684210688))
+* Power - Every frame shows a fixed region of the complex plane centered 
+at the origin, and *c* is fixed. The exponent *p* in *f(z) = z^p + c* is 
+changed in each frame, usually taking on fractional values.
 
 ## Twitter Bot
 

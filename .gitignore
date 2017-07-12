@@ -4,7 +4,8 @@
 *.txt
 async-upload.py
 images/
-output.julia
+*.julia
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

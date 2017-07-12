@@ -21,22 +21,27 @@ Inputs (Zoom):
   rStart -- half of width of smallest image in complex plane
   rEnd -- half of width of largest image in complex plane
 
-**These constants may be altered as needed in Julia.py
+**May be altered as needed in Julia.py
 
 """
 
 import random
+import json
 
 import numpy as np
 
 n = 256
 split = 4
-iters = 100
+iters = 150
 frameCount = 300
 r = 1.5
+p = random.choice([2]*10 + [3]*5 + [4]*3 + [5]*2)
 
 # Favors picking Zoom over Linear over Radial
-seqType = random.choice(['linear']*3 + ['radial']*2 + ['zoom']*4)
+seqType = random.choice(['linear']*3 
+                      + ['radial']*2 
+                      + ['zoom']*4
+                      + ['power']*1)
 
 # Get c such that abs(c) <= 1
 c = complex(1,1)
@@ -59,11 +64,25 @@ center = random.uniform(0, 1)*np.exp(1j*random.uniform(0, 2*np.pi))
 rStart = 0.000001
 rEnd = 1.50
 
-with open("input.julia", "w") as out:
-    out.write(' '.join(map(repr, [n, split, iters, frameCount,
-                                  r, c.real, c.imag])) + '\n')
-    out.write(' '.join(map(repr, [cEnd.real, cEnd.imag])) + '\n')
-    out.write(' '.join(map(repr, [rad, angle])) + '\n')
-    out.write(' '.join(map(repr, [center.real, center.imag,
-                                  rStart, rEnd])) + '\n')
-    out.write(seqType)
+# Power type inputs
+pMin = 2
+pMax = 3
+
+
+data = {"n": n,
+        "split": split,
+        "iters": iters,
+        "frameCount": frameCount,
+        "r": r,
+        "p": p,
+        "seqType": seqType,
+        "c": (c.real, c.imag),
+        "linear": {"cEnd": (cEnd.real, cEnd.imag)},
+        "radial": {"rad": rad, "angle": angle},
+        "zoom": {"center": (center.real, center.imag),
+                 "rStart": rStart, "rEnd": rEnd},
+        "power": {"pMin": pMin, "pMax": pMax}
+       }
+
+with open("input.json", "w") as out:
+    json.dump(data, out, indent=1)

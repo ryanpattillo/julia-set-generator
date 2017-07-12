@@ -7,9 +7,9 @@ import numexpr as ne
 from PIL import Image
 
 
-def f(arr, c):
+def f(arr, c, p):
     """Return arr with iterative function arr = arr**2 + c applied to it"""
-    arr = ne.evaluate("arr**2 + c")
+    arr = ne.evaluate("arr**p + c")
     arr[ne.evaluate("real(abs(arr))>2")] = np.inf
     return arr
 
@@ -51,7 +51,7 @@ def toRGB(arr):
     return rgb.astype(np.uint8)
  
 
-def subImage(c, r, n, iters, split, center=complex(0,0), save=True):
+def subImage(c, r, n, iters, split, p, center=complex(0,0), save=True):
     """Make a subimage of the full frame.
 
     Arguments:
@@ -78,7 +78,7 @@ def subImage(c, r, n, iters, split, center=complex(0,0), save=True):
         
         # apply iterative function
         for k in xrange(iters):
-            grid = f(grid, c)
+            grid = f(grid, c, p)
             # check if image is black; break and return True if so
             if k in {5, 10, 25, 50, iters-1}:
                 if not np.any(toGrayScale(grid)):
