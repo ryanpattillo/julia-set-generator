@@ -35,7 +35,7 @@ split = 4
 iters = 150
 frameCount = 300
 r = 1.5
-p = random.choice([2]*10 + [3]*5 + [4]*3 + [5]*2)
+p = random.choice([2]*4 + [3]*3 + [4]*2 + [5]*1)
 
 # Favors picking Zoom over Linear over Radial
 seqType = random.choice(['linear']*3 

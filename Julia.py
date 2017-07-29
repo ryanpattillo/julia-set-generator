@@ -14,6 +14,8 @@ Sequence types:
            anywhere in the plane. Each successive frame shows a slightly 
            smaller or larger region of the complex plane to give 
            a zooming effect.
+  Power - The constant `c` is not changed, but the exponent `p` is changed
+           frame-by-frame from 2 to 3, taking on fractional values in between.
 
 Each sequence type adjusts its starting and/or ending c values so
  that they are 'interesting' -  this means that the fractal created 
@@ -33,7 +35,6 @@ import JuliaTools
 
 start = timeit.default_timer()
 
-# Read inputs from input.json
 with open("input.json", "r") as infile:
     d = json.load(infile)
 
@@ -45,7 +46,6 @@ c = complex(d["c"][0], d["c"][1])
 # List of coordinates of subimages inside the full image
 coords = list(itertools.product(range(split), range(split)))
 
-
 def makeLinear():
     global c
     cEnd = complex(d["linear"]["cEnd"][0], d["linear"]["cEnd"][1])
@@ -55,7 +55,7 @@ def makeLinear():
     # Get interesting starting c
     while True:
         subIm = JuliaTools.subImage(c=c, r=r, p=p, n=10, iters=iters,
-                                    split=split, save=False)
+                                    split=split, save=False, aura=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -65,7 +65,7 @@ def makeLinear():
     # Get interesting cEnd
     while True:
         subIm = JuliaTools.subImage(c=cEnd, r=r, p=p, n=10, iters=iters, 
-                                    split=split, save=False)
+                                    split=split, save=False, aura=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -75,7 +75,7 @@ def makeLinear():
     # Straight line c follows in complex plane
     cPath = np.linspace(c, cEnd, frameCount)
 
-    for frame in range(frameCount):    
+    for frame in xrange(frameCount):    
         subIm = JuliaTools.subImage(c=cPath[frame], r=r, n=n, p=p,
                                     iters=iters, split=split)
         isBlackList = pool.map(subIm, coords)
@@ -111,7 +111,8 @@ def makeRadial():
 
     while True:
         subIm = JuliaTools.subImage(c=rad*np.exp(1j*angle), r=r, n=10, p=p,
-                                    iters=iters, split=split, save=False)
+                                    iters=iters, split=split, save=False,
+                                    aura=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
@@ -121,7 +122,7 @@ def makeRadial():
     # Circular arc c follows in complex plane
     cPath = rad*np.exp(1j*args)
 
-    for frame in range(frameCount):
+    for frame in xrange(frameCount):
         subIm = JuliaTools.subImage(c=cPath[frame], r=r, n=n, p=p,
                                     iters=iters, split=split)
         isBlackList = pool.map(subIm, coords)
@@ -155,18 +156,19 @@ def makeZoom():
     # Get interesting c
     while True:
         subIm = JuliaTools.subImage(c=c, r=rStart, n=10, p=p, iters=iters,
-                                    split=split, save=False)
+                                    split=split, save=False, aura=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
         else:
-            c *= 0.975
+            c *= 0.99
     
     # Get interesting center (not entirely black or color)
     decreased, increased = False, False
     while True:
         subIm = JuliaTools.subImage(c=c, r=0.25*rStart, n=10, p=p, iters=iters,
-                                    split=split, center=center, save=False)
+                                    split=split, center=center, save=False,
+                                    aura=False)
         isBlackList = pool.map(subIm, coords)
         someBlack = any(isBlackList)
         someColor = not all(isBlackList)
@@ -184,9 +186,9 @@ def makeZoom():
 
     # Ensures frame size is changed at consant proportion
     factor = (rEnd/rStart)**(1.0/float(frameCount))
-    for frame in range(frameCount):
-        subIm = JuliaTools.subImage(c=c, r=rStart, n=n, p=p,
-                                    iters=iters, split=split, center=center)
+    for frame in xrange(frameCount):
+        subIm = JuliaTools.subImage(c=c, r=rStart, n=n, p=p, iters=iters,
+                                    split=split, center=center, aura=False)
         pool.map(subIm, coords)
         JuliaTools.makeFrame(frame, n, split, coords)
         rStart *= factor
@@ -218,17 +220,18 @@ def makePower():
 
     # Get interesting c
     while True:
-        subIm = JuliaTools.subImage(c=c, n=10, iters=iters, r=r,
-                                    p=pMin, split=split, save=False)
+        subIm = JuliaTools.subImage(c=c, n=10, iters=iters/2, r=r, p=pMin,
+                                    split=split, save=False, aura=False)
         isBlackList = pool.map(subIm, coords)
         if not all(isBlackList):
             break
         else:
             c *= 0.975
 
-    for frame in range(frameCount):
+
+    for frame in xrange(frameCount):
         subIm = JuliaTools.subImage(c=c, r=r, n=n, p=pPath[frame],
-                                    iters=iters, split=split)
+                                    iters=iters/2, split=split)
         isBlackList = pool.map(subIm, coords)
         allBlack = all(isBlackList)
         
@@ -240,7 +243,7 @@ def makePower():
     JuliaTools.prepareForFFmpeg(frameCount=frameCount, loop=True)
 
     with open("tweet.txt", "w") as out:
-        out.write("Fractional powers ranging from 2 to 3.")
+        out.write("woooooooooooooooooooo")
 
     stop = timeit.default_timer()
     

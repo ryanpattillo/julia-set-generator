@@ -9,9 +9,10 @@ from PIL import Image
 
 def f(arr, c, p):
     """Return arr with iterative function arr = arr**2 + c applied to it"""
-    arr = ne.evaluate("arr**p + c")
-    arr[ne.evaluate("real(abs(arr))>2")] = np.inf
-    return arr
+#    arr = ne.evaluate("arr**p + c")
+#    arr[ne.evaluate("real(abs(arr))>2")] = np.inf
+#    return arr
+    return ne.evaluate("arr**p + c")
 
     
 def toGrayScale(arr):
@@ -25,7 +26,7 @@ def toGrayScale(arr):
     return arr.astype(np.uint8)
 
     
-def toRGB(arr):
+def toRGB(arr, escape, iters):
     """Return an array of RGB values, each 0 to 255, of type np.uint8.
 
     If an element z of arr is NaN or abs(z) > 2, it is mapped to 0,0,0.
@@ -35,28 +36,40 @@ def toRGB(arr):
     n = arr.shape[0]
     rgb = np.zeros((n,n,3))
 
-    # isValid is a boolean filter to determine which elements should be 0
+    # isValid is a boolean filter to determine which entries
+    #   are not in the interior of the fractal
     isFinite = np.isfinite(arr)
     isSmall = np.nan_to_num(ne.evaluate("real(abs(arr))"))<=2
     isValid = np.logical_and(isFinite, isSmall)
-
+    
     arr = np.nan_to_num(arr)
     arr[ne.evaluate("real(abs(arr))>2")] = 0
     args = np.angle(arr)
     a = ne.evaluate("real(abs(arr))")
-    r = ne.evaluate("(a*(0.25*(cos(args)+1)-0.5)+1)*255.999*isValid")
-    g = ne.evaluate("(a*(0.25*(cos(args-0.666*pi)+1)-0.5)+1)*255.999*isValid")
-    b = ne.evaluate("(a*(0.25*(cos(args-1.333*pi)+1)-0.5)+1)*255.999*isValid")
-    rgb[...,0], rgb[...,1], rgb[...,2] = r, g, b
-    return rgb.astype(np.uint8)
- 
+    iters = float(iters)
 
-def subImage(c, r, n, iters, split, p, center=complex(0,0), save=True):
+    r = ne.evaluate("(1 - a*(0.5 - 0.25*(1 + cos(args))))"
+                    " *255.999*isValid"
+                    " + 175*escape/iters*(escape>0)")
+    g = ne.evaluate("(1 - a*(0.5 - 0.25*(1 + cos(args - 0.666*pi))))"
+                    " *255.999*isValid"
+                    " + 175*escape/iters*(escape>0)")
+    b = ne.evaluate("(1 - a*(0.5 - 0.25*(1 + cos(args - 1.333*pi))))"
+                    " *255.999*isValid"
+                    " + 175*escape/iters*(escape>0)")
+
+    rgb[...,0], rgb[...,1], rgb[...,2] = r, g, b
+
+    return rgb.astype(np.uint8)
+
+def subImage(c, r, n, iters, split, p, 
+             center=complex(0,0), save=True, aura=True):
     """Make a subimage of the full frame.
 
     Arguments:
     center -- center of full image in complex plane (default origin)
     save -- save subimage to disk (if not black) (default True)
+    aura -- shading of outside points on escape time (default True)
     """
     def nested(coords):
         """Return True if image is black, False otherwise."""
@@ -75,17 +88,24 @@ def subImage(c, r, n, iters, split, p, center=complex(0,0), save=True):
         im = 1j*np.flip(np.vstack(
                         np.linspace(imL, imR, n, dtype=np.complex_)), 0)
         grid = re + im
-        
+
+        testCounts = set([int(0.1*k*iters) for k in range(1,10)])
+        escape = np.zeros((n,n))
         # apply iterative function
         for k in xrange(iters):
             grid = f(grid, c, p)
-            # check if image is black; break and return True if so
-            if k in {5, 10, 25, 50, iters-1}:
-                if not np.any(toGrayScale(grid)):
+            #grid = ne.evaluate("grid**p + c")
+            grid[ne.evaluate("real(abs(grid))>2")] = np.inf
+            if aura:
+                escape = ne.evaluate("escape + (k+1)"
+                                     "*(real(abs(grid))>2)*(escape==0)")
+                if k in testCounts and np.all(escape):
+                    break
+            elif k in testCounts and not np.any(toGrayScale(grid)):
                     return True
-        
+
         if save:
-            img = Image.fromarray(toRGB(grid), 'RGB')
+            img = Image.fromarray(toRGB(grid, escape, iters), 'RGB')
             img.save("images/image_" + str(i) + "_" + str(split-j-1) + ".png")
         return False
     return nested
@@ -124,20 +144,20 @@ def prepareForFFmpeg(frameCount, reverse=False, loop=False):
         # writes sequence of frames in order of creation
         if loop or not reverse:
             # pause on first frame
-            for i in range(20):
+            for _ in xrange(20):
                 flist.write("file 'images/frame0.png'\n")
-            for frame in range(frameCount):
+            for frame in xrange(frameCount):
                 framestr = "images/frame" + str(frame) + ".png"
                 if os.path.isfile(framestr):
                     flist.write("file '" + framestr + "'\n")
                     last = framestr
             # pause on middle/last frame
-            for i in range(10):
+            for _ in xrange(10):
                 flist.write("file '" + last + "'\n")
         # writes sequence of frames in reverse order of creation
         if loop or reverse:
             # pause on first/middle frame
-            for i in range(10):
+            for _ in xrange(10):
                 flist.write("file 'images/frame" 
                             + str(frameCount-1) + ".png'\n")
             for frame in reversed(range(frameCount)):
@@ -145,6 +165,6 @@ def prepareForFFmpeg(frameCount, reverse=False, loop=False):
                 if os.path.isfile(framestr):
                     flist.write("file '" + framestr + "'\n")
             # pause on last frame
-            for i in range(20):
+            for _ in xrange(20):
                 flist.write("file '" + framestr + "'\n")
 
